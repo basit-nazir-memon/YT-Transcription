@@ -79,7 +79,7 @@ async def transcribe(
         }
 
         params = {
-            'a': 'bFkyb0ppTVhySzVueXA3ZHR5SVVMcGhwRDZqSkUxaUxMNlVENlB5XzI3NzQwOWJjNTBkOWE5MzQyYTRkMTA5ZmNiMTMxYzBk'
+            'a': 'UEh6SG1ReU9xMGZRMlVVbkRDVEM4YWxkRFJjeU83UE5uc2IyXzI3NzQwOWJjNTBkOWE5MzQyYTRkMTA5ZmNiMTMxYzBk'
         }
 
         convert_url = None
