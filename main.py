@@ -16,6 +16,10 @@ import tempfile
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Get port from environment variable or default to 8000
+PORT = int(os.getenv("PORT", 8000))
+HOST = os.getenv("HOST", "0.0.0.0")
+
 app = FastAPI(
     title="YouTube Audio Transcription API",
     description="API to download YouTube videos and transcribe them using AssemblyAI",
@@ -147,4 +151,9 @@ async def transcribe(
             logger.info("Cleaned up temporary files")
         if os.path.exists(temp_cookies_path):
             os.unlink(temp_cookies_path)
-            logger.info("Cleaned up temporary cookies file") 
+            logger.info("Cleaned up temporary cookies file")
+
+if __name__ == "__main__":
+    import uvicorn
+    logger.info(f"Starting server on {HOST}:{PORT}")
+    uvicorn.run(app, host=HOST, port=PORT) 
