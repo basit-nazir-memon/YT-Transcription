@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Request
+import random
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.params import Form
 from pydantic import BaseModel
 import subprocess
@@ -28,9 +29,8 @@ app = FastAPI(
 
 ASSEMBLYAI_API_KEY = 'b22ca2f6671b4976b7109b6b48f18fc7'  # Replace with your key or use env var
 
-class TranscribeRequest(BaseModel):
-    youtube_url: str
-    cookies: str  # This will be the cookies.txt content
+
+
 
 @app.get("/")
 async def root():
@@ -41,70 +41,151 @@ async def root():
         }
     }
 
+
+
+
+# pass youtube url as a query parameter
 @app.post('/transcribe')
 async def transcribe(
-        youtube_url: str = Form(...),
-        cookies: str = Form(...)
+        youtube_url: str = Query(...)
     ):    
     # Create a unique working directory for this request
     work_dir = Path(f"temp_{uuid.uuid4()}")
     work_dir.mkdir(exist_ok=True)
     audio_filename = work_dir / "audio.mp3"
-    
-    # Create a temporary cookies file
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_cookies:
-        temp_cookies.write(cookies)
-        temp_cookies_path = temp_cookies.name
 
     try:
         logger.info("Starting download process...")
-        # Download audio using yt-dlp and cookies
-        cmd = [
-            'yt-dlp',
-            '--cookies', temp_cookies_path,
-            '-f', 'bestaudio/best',
-            '--extract-audio',
-            '--audio-format', 'mp3',
-            '--no-keep-video',
-            '--no-warnings',
-            '--quiet',
-            '--no-check-certificate',
-            '--prefer-insecure',
-            '--geo-bypass',
-            '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            '-o', str(audio_filename),
-            youtube_url
-        ]
-        
-        logger.info(f"Attempting to download: {youtube_url}")
-        process = subprocess.run(cmd, capture_output=True, text=True)
-        
-        if process.returncode != 0:
-            logger.error(f"First download attempt failed: {process.stderr}")
-            # Try alternative format if first attempt fails
-            cmd[4] = 'best'  # Change format to just 'best'
-            logger.info("Retrying with alternative format...")
-            process = subprocess.run(cmd, capture_output=True, text=True)
-            if process.returncode != 0:
-                logger.error(f"Second download attempt failed: {process.stderr}")
-                # Try one last time with minimal options
-                minimal_cmd = [
-                    'yt-dlp',
-                    '--cookies', temp_cookies_path,
-                    '-f', 'best',
-                    '--extract-audio',
-                    '--audio-format', 'mp3',
-                    '-o', str(audio_filename),
-                    youtube_url
-                ]
-                logger.info("Retrying with minimal options...")
-                process = subprocess.run(minimal_cmd, capture_output=True, text=True)
-                if process.returncode != 0:
-                    raise HTTPException(status_code=500, detail=f"All download attempts failed. Last error: {process.stderr}")
-        
-        logger.info("Download completed, checking file...")
-        if not audio_filename.exists():
-            raise HTTPException(status_code=500, detail="Audio file not found after download")
+
+        # Step 1: Initialize
+        init_url = "https://d.ummn.nu/api/v1/init"
+        headers = {
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
+            'Accept-Language': 'en-US,en;q=0.9,ur;q=0.8,sd;q=0.7',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Host': 'd.ummn.nu',
+            'Origin': 'https://ytmp3.la',
+            'Pragma': 'no-cache',
+            'Referer': 'https://ytmp3.la/',
+            'Sec-Ch-Ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+            'Sec-Ch-Ua-Mobile': '?1',
+            'Sec-Ch-Ua-Platform': '"Android"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36'
+        }
+
+        params = {
+            'a': 'bFkyb0ppTVhySzVueXA3ZHR5SVVMcGhwRDZqSkUxaUxMNlVENlB5XzI3NzQwOWJjNTBkOWE5MzQyYTRkMTA5ZmNiMTMxYzBk'
+        }
+
+        convert_url = None
+
+        # Step 1: Call /init repeatedly until success
+        while True:
+            _value = str(random.random())
+            params['_'] = _value
+
+            try:
+                response = requests.get(init_url, headers=headers, params=params)
+                logger.info(f"[INIT] Status: {response.status_code} | _={_value}")
+
+                if response.status_code != 400:
+                    data = response.json()
+                    convert_url = data.get("convertURL")
+                    # logger.info(f"[INIT] Got convertURL: {convert_url}")
+                    break
+
+                time.sleep(1)
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[INIT] Request failed: {e}")
+                break
+
+        # Step 2: Send GET request to convertURL
+        if convert_url:
+            # take out the sig query from convert_url
+            sig = convert_url.split("sig=")[1]
+
+            params = {
+                "sig": sig,
+                "v": "k4715CJ0Ii8",
+                "f": "mp3",
+                "_": str(random.random())
+            }
+
+            try:
+                response = requests.get(convert_url, headers=headers, params=params)
+                logger.info(f"[CONVERT] Status: {response.status_code}")
+
+                redirect_url = None
+
+                if response.status_code == 200:
+                    convert_data = response.json()
+
+                    if convert_data.get("redirect") == 1:
+                        redirect_url = convert_data.get("redirectURL")
+                        # logger.info(f"[REDIRECT] Found redirectURL: {redirect_url}")
+                    else:
+                        logger.info("[CONVERT] No redirect found.")
+
+                else:
+                    logger.error(f"[CONVERT] Unexpected status code: {response.status_code}")
+
+
+                final_response = None
+                # make the payload for the final request consisting of sig, v, f, and _ must be uniqly generated
+                if redirect_url:
+                    final_response = requests.get(redirect_url, headers=headers)
+                    logger.info(f"[CONVERT] Status: {final_response.status_code}")
+
+                    if final_response.status_code == 200:
+                        convert_data = final_response.json()
+                        # logger.info(f"[CONVERT] Response: {convert_data}")
+                        if convert_data.get("redirect") == 0:
+                            downloadURL = convert_data.get("downloadURL")
+                            dividedPart = downloadURL.split("?")[1]
+                            downloadURL = "https://uuuu.ummn.nu/api/v1/download?" + dividedPart
+
+                            # logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
+                        else:
+                            logger.info("[CONVERT] No downloadURL found.")
+
+                else:
+                    logger.error(f"[CONVERT] Unexpected status code: {final_response.status_code}")
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[CONVERT] Request failed: {e}")
+
+        if downloadURL:
+            try:
+                # Add retry mechanism for download
+                max_retries = 3
+                retry_count = 0
+                while retry_count < max_retries:
+                    try:
+                        logger.info(f"Attempting to download from URL (attempt {retry_count + 1}/{max_retries})")
+                        response = requests.get(downloadURL, timeout=30)
+                        response.raise_for_status()
+                        
+                        with open(audio_filename, 'wb') as f:
+                            f.write(response.content)
+                        logger.info("Download completed successfully")
+                        break
+                    except requests.exceptions.RequestException as e:
+                        retry_count += 1
+                        if retry_count == max_retries:
+                            raise HTTPException(status_code=500, detail=f"Failed to download audio after {max_retries} attempts: {str(e)}")
+                        logger.warning(f"Download attempt {retry_count} failed: {str(e)}")
+                        time.sleep(2)  # Wait before retrying
+            except Exception as e:
+                logger.error(f"Error downloading audio: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error downloading audio: {str(e)}")
+        else:
+            raise HTTPException(status_code=500, detail="No download URL was obtained from the conversion process")
 
         logger.info("Uploading to AssemblyAI...")
         # Upload audio to AssemblyAI
@@ -149,9 +230,6 @@ async def transcribe(
         if work_dir.exists():
             shutil.rmtree(work_dir)
             logger.info("Cleaned up temporary files")
-        if os.path.exists(temp_cookies_path):
-            os.unlink(temp_cookies_path)
-            logger.info("Cleaned up temporary cookies file")
 
 if __name__ == "__main__":
     import uvicorn
