@@ -29,8 +29,7 @@ app = FastAPI(
 
 ASSEMBLYAI_API_KEY = 'b22ca2f6671b4976b7109b6b48f18fc7'  # Replace with your key or use env var
 
-
-
+TOKEN = 'NjU1OTRwWG95ZHFpdmhib3Rnam1uZ3AzYXkzcTJ1bWRia3RqeGNyYnE1cmFlb2xzYjRzajVfMjc3NDA5YmM1MGQ5YTkzNDJhNGQxMDlmY2IxMzFjMGQ'
 
 @app.get("/")
 async def root():
@@ -49,6 +48,8 @@ async def root():
 async def transcribe(
         youtube_url: str = Query(...)
     ):    
+
+    global TOKEN
     # Create a unique working directory for this request
     work_dir = Path(f"temp_{uuid.uuid4()}")
     work_dir.mkdir(exist_ok=True)
@@ -79,13 +80,14 @@ async def transcribe(
         }
 
         params = {
-            'a': 'UEh6SG1ReU9xMGZRMlVVbkRDVEM4YWxkRFJjeU83UE5uc2IyXzI3NzQwOWJjNTBkOWE5MzQyYTRkMTA5ZmNiMTMxYzBk'
+            'a': TOKEN
         }
 
         convert_url = None
 
+        triesLeft = 3
         # Step 1: Call /init repeatedly until success
-        while True:
+        while triesLeft > 0:
             _value = str(random.random())
             params['_'] = _value
 
@@ -93,17 +95,31 @@ async def transcribe(
                 response = requests.get(init_url, headers=headers, params=params)
                 logger.info(f"[INIT] Status: {response.status_code} | _={_value}")
 
-                if response.status_code != 400:
+                if response.status_code == 403:
+                    # send request 
+                    token_response = requests.get("https://mp3convertortokengenerator.onrender.com/api/get-token")
+                    if token_response.status_code == 200:
+                        token_data = token_response.json()
+                        TOKEN = token_data.get("token")
+                        params['a'] = TOKEN
+                        logger.info(f"[GET TOKEN] Status: {token_response.status_code}")
+                    else:
+                        logger.error(f"[GET TOKEN] Status: {token_response.status_code}")
+
+                if response.status_code == 200:
                     data = response.json()
                     convert_url = data.get("convertURL")
                     # logger.info(f"[INIT] Got convertURL: {convert_url}")
                     break
+                
 
                 time.sleep(1)
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"[INIT] Request failed: {e}")
                 break
+
+            triesLeft -= 1
 
         # Step 2: Send GET request to convertURL
         if convert_url:
