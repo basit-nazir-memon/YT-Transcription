@@ -1,6 +1,7 @@
 import random
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.params import Form
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import subprocess
 import os
@@ -25,6 +26,15 @@ app = FastAPI(
     title="YouTube Audio Transcription API",
     description="API to download YouTube videos and transcribe them using AssemblyAI",
     version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 ASSEMBLYAI_API_KEY = 'b22ca2f6671b4976b7109b6b48f18fc7'  # Replace with your key or use env var
