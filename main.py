@@ -122,6 +122,7 @@ async def transcribe(
                 if response.status_code == 200:
                     data = response.json()
                     convert_url = data.get("convertURL")
+                    logger.info(f"[INIT] Info: {data}")
                     # logger.info(f"[INIT] Got convertURL: {convert_url}")
                     break
                 
@@ -177,7 +178,7 @@ async def transcribe(
                         if convert_data.get("redirect") == 0:
                             downloadURL = convert_data.get("downloadURL")
                             dividedPart = downloadURL.split("?")[1]
-                            downloadURL = "https://uuuu.ummn.nu/api/v1/download?" + dividedPart
+                            downloadURL = "https://nmnn.ummn.nu/api/v1/download?" + dividedPart
 
                             # logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
                         else:
