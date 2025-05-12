@@ -177,10 +177,15 @@ async def transcribe(
                         # logger.info(f"[CONVERT] Response: {convert_data}")
                         if convert_data.get("redirect") == 0:
                             downloadURL = convert_data.get("downloadURL")
-                            dividedPart = downloadURL.split("?")[1]
-                            downloadURL = "https://nmnn.ummn.nu/api/v1/download?" + dividedPart
+                            if not downloadURL:
+                                raise HTTPException(status_code=500, detail="No download URL in response")
+                            
+                            # Ensure we have a complete URL
+                            if not downloadURL.startswith('http'):
+                                downloadURL = "https://nmnn.ummn.nu/api/v1/download?" + downloadURL.split("?")[-1]
+                                logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
+                            
                             logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
-                            # logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
                         else:
                             logger.info("[CONVERT] No downloadURL found.")
 
@@ -198,6 +203,7 @@ async def transcribe(
                 while retry_count < max_retries:
                     try:
                         logger.info(f"Attempting to download from URL (attempt {retry_count + 1}/{max_retries})")
+                        logger.info(f"[DOWNLOAD] Downloading from URL: {downloadURL}")
                         response = requests.get(downloadURL, timeout=30)
                         response.raise_for_status()
                         
