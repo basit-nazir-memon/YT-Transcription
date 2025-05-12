@@ -61,7 +61,7 @@ async def transcribe(
 
     global TOKEN
     # Create a unique working directory for this request
-    work_dir = Path(f"temp_{uuid.uuid4()}")
+    work_dir = Path(f"temp_{uuid.uuid4()}") # make sure it is unique
     work_dir.mkdir(exist_ok=True)
     audio_filename = work_dir / "audio.mp3"
 
