@@ -59,6 +59,9 @@ async def transcribe(
         youtube_url: str = Query(...)
     ):    
 
+    # breakVideo Url and get only this:
+    video_id = youtube_url.split("v=")[1]
+    video_id = video_id.split("&")[0]
     global TOKEN
     # Create a unique working directory for this request
     work_dir = Path(f"temp_{uuid.uuid4()}") # make sure it is unique
@@ -138,7 +141,7 @@ async def transcribe(
 
             params = {
                 "sig": sig,
-                "v": "k4715CJ0Ii8",
+                "v": video_id,
                 "f": "mp3",
                 "_": str(random.random())
             }
