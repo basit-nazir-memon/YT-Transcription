@@ -179,7 +179,7 @@ async def transcribe(
                             downloadURL = convert_data.get("downloadURL")
                             dividedPart = downloadURL.split("?")[1]
                             downloadURL = "https://nmnn.ummn.nu/api/v1/download?" + dividedPart
-
+                            logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
                             # logger.info(f"[REDIRECT] Found downloadURL: {downloadURL}")
                         else:
                             logger.info("[CONVERT] No downloadURL found.")
